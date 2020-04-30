@@ -1,6 +1,8 @@
 import socket
 import sys
 import traceback
+import os
+import mimetypes
 
 def response_ok(body=b"This is a minimal response", mimetype=b"text/plain"):
     """
@@ -20,20 +22,33 @@ def response_ok(body=b"This is a minimal response", mimetype=b"text/plain"):
     """
 
     # TODO: Implement response_ok
-    return b""
+    return b"\r\n".join([
+        b"HTTP/1.1 200 OK",
+        b"Content-Type: " + mimetype,
+        b"",
+        body,
+    ])
 
 def response_method_not_allowed():
     """Returns a 405 Method Not Allowed response"""
 
     # TODO: Implement response_method_not_allowed
-    return b""
+    return b"\r\n".join([
+        b"HTTP/1.1 405 Method Not Allowed",
+        b"",
+        b"You can't do that on this server!"
+    ])
 
 
 def response_not_found():
     """Returns a 404 Not Found response"""
 
     # TODO: Implement response_not_found
-    return b""
+    return b"\r\n".join([
+        b"HTTP/1.1 404 Not Found",
+        b"",
+        b"No response path"
+    ])
 
 
 def parse_request(request):
@@ -45,7 +60,11 @@ def parse_request(request):
     """
 
     # TODO: implement parse_request
-    return ""
+    method, path, version = request.split('\r\n')[0].split(' ')
+    if method != 'GET':
+        raise NotImplementedError
+
+    return path
 
 def response_path(path):
     """
@@ -85,9 +104,26 @@ def response_path(path):
     # If the path is "make_time.py", then you may OPTIONALLY return the
     # result of executing `make_time.py`. But you need only return the
     # CONTENTS of `make_time.py`.
+    full_path = os.getcwd()
+    #full_path = '/Users/amirgnyawali/Documents/SP_Python230/socket-http-server'
+
+    home_path = full_path + '/webroot' + path
+
+    if os.path.isdir(home_path):
+        content = ('\r\n, '.join(os.listdir(home_path))).encode('utf8')
+        mime_type = b'text/plain'
+
+
+    elif os.path.isfile(home_path):
+        with open(home_path, 'rb') as file:
+            content = file.read()
+        mime_type = (mimetypes.guess_type(path)[0]).encode('utf8')
+
+    else:
+        raise NameError
     
-    content = b"not implemented"
-    mime_type = b"not implemented"
+    #content = b"not implemented"
+    #mime_type = b"not implemented"
 
     return content, mime_type
 
@@ -96,7 +132,7 @@ def server(log_buffer=sys.stderr):
     address = ('127.0.0.1', 10000)
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    print("making a server on {0}:{1}".format(*address), file=log_buffer)
+    print("making a server on {0}:{1}".format(*address), file = log_buffer)
     sock.bind(address)
     sock.listen(1)
 
@@ -128,10 +164,19 @@ def server(log_buffer=sys.stderr):
                 # a NameError, then let response be a not_found response. Else,
                 # use the content and mimetype from response_path to build a 
                 # response_ok.
-                response = response_ok(
-                    body=b"Welcome to my web server",
-                    mimetype=b"text/plain"
-                )
+                try:
+                    path = parse_request(request)
+                    body, mime_type = response_path(path)
+                    response = response_ok(body, mime_type)
+                    #response = response_ok(
+                    #    body=b"Welcome to my web server",
+                    #    mimetype=b"text/plain"
+                    #)
+                except NotImplementedError:
+                    response = response_method_not_allowed()
+
+                except NameError:
+                    response = response_not_found() 
 
                 conn.sendall(response)
             except:

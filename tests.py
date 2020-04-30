@@ -31,7 +31,7 @@ class WebTestCase(unittest.TestCase):
 
         response = conn.getresponse()
 
-        conn.close()
+        conn.close()    
 
         return response
 
